@@ -24,10 +24,12 @@ using std::popcount;
 using std::stack;
 using std::string;
 
-uint8_t mem[UINT16_MAX + 1] = {0};
+uint8_t raw_mem[UINT16_MAX + 1] = {0};
 uint32_t i = 0;
 
 string program;
+char* program_input;
+FILE* program_file;
 string basic_inst = "szxyiouv";
 
 stack<pair<uint32_t, uint32_t>> loop_begin;
@@ -50,42 +52,43 @@ uint8_t gray_to_bin(uint8_t n) {
 void mem_lookup() {
 	cout << "ptr: " << (int)gray_to_bin(i) << "\t";
 	for (int i = 0; i < 10; i++)
-		cout << i << ": " << (int)gray_to_bin(mem[gray_to_bin(i)]) << "\t";
+		cout << i << ": " << (int)gray_to_bin(raw_mem[gray_to_bin(i)]) << "\t";
 	cout << "bypass loop: " << bypass_loop << endl;
 }
 
 void basic_inst_jit() {
 	if (curr_inst == 's') {
-		mem[i] ^= 1;
+		raw_mem[i] ^= 1;
 	} else if (curr_inst == 'z') {
-		mem[i] ^= 1 << std::min(countr_zero(mem[i]) + 1, 7);
+		raw_mem[i] ^= 1 << std::min(countr_zero(raw_mem[i]) + 1, 7);
 	} else if (curr_inst == 'x') {
 		i ^= 1;
 	} else if (curr_inst == 'y') {
 		i ^= 1 << (countr_zero(i) + 1);
 	} else if (curr_inst == 'i') {
-		mem[i] = getchar();
+		raw_mem[i] = getchar();
 	} else if (curr_inst == 'o') {
-		putchar(gray_to_bin(mem[i]));
+		// putchar(gray_to_bin(raw_mem[i]));
+		putchar(raw_mem[i]);
 	} else if (curr_inst == 'u') {
-		mem[i] = mem[mem[i]];
+		raw_mem[i] = raw_mem[raw_mem[i]];
 	} else if (curr_inst == 'v') {
-		mem[i] = mem[mem[i] + 256];
+		raw_mem[i] = raw_mem[raw_mem[i] + 256];
 	} else {
-		printf("Unexpected Instruction!\n");
-		exit(1);
+		// printf("Unexpected Instruction %c\n", curr_inst);
+		// exit(1);
 	}
 }
 
 void p_jit() {
-	if (popcount(mem[i]) & 1) {
+	if (popcount(raw_mem[i]) & 1) {
 		if (next_inst == (uint32_t)program.length()) {
-			curr_inst = getchar();
+			curr_inst = fgetc(program_file);
 			basic_inst_jit();
 			program.push_back(curr_inst);
 			next_inst++;
 
-			program.push_back(getchar());
+			program.push_back(fgetc(program_file));
 			next_inst++;
 		} else {
 			curr_inst = program[next_inst++];
@@ -94,10 +97,10 @@ void p_jit() {
 		}
 	} else {
 		if (next_inst == (uint32_t)program.length()) {
-			program.push_back(getchar());
+			program.push_back(fgetc(program_file));
 			next_inst++;
 
-			curr_inst = getchar();
+			curr_inst = fgetc(program_file);
 			basic_inst_jit();
 			program.push_back(curr_inst);
 			next_inst++;
@@ -112,12 +115,12 @@ void p_jit() {
 void q_jit() {
 	if (popcount(i) & 1) {
 		if (next_inst == (uint32_t)program.length()) {
-			curr_inst = getchar();
+			curr_inst = fgetc(program_file);
 			basic_inst_jit();
 			program.push_back(curr_inst);
 			next_inst++;
 
-			program.push_back(getchar());
+			program.push_back(fgetc(program_file));
 			next_inst++;
 		} else {
 			curr_inst = program[next_inst++];
@@ -126,10 +129,10 @@ void q_jit() {
 		}
 	} else {
 		if (next_inst == (uint32_t)program.length()) {
-			program.push_back(getchar());
+			program.push_back(fgetc(program_file));
 			next_inst++;
 
-			curr_inst = getchar();
+			curr_inst = fgetc(program_file);
 			basic_inst_jit();
 			program.push_back(curr_inst);
 			next_inst++;
@@ -142,7 +145,7 @@ void q_jit() {
 }
 
 void loop_begin_jit() {
-	if (!mem[i]) {
+	if (!raw_mem[i]) {
 		if (next_inst == (uint32_t)program.length()) {
 			bypass_loop++;
 		} else {
@@ -158,7 +161,7 @@ void loop_end_jit() {
 	if (bypass_loop) {
 		bypass_loop--;
 	} else {
-		if (mem[i]) {
+		if (raw_mem[i]) {
 			next_inst = loop_begin.top().BEGIN;
 			loop_begin.top().END = next_inst;
 		} else {
@@ -168,11 +171,19 @@ void loop_end_jit() {
 }
 
 int main(int argc, char* argv[]) {
+	if (argc < 3 || argc > 4) {
+		printf("usage: COMPILER MEMOUT_FILE <OPTIONAL>PROGRAM_INPUT\n");
+		exit(1);
+	}
+
 	const char* memout_file = argv[1];
 
-	while (curr_inst != EOF) {
+	program_input = argv[2];
+	program_file = fopen(program_input, "rb");
+
+	while (new_inst != EOF && new_inst != '$') {
 		if (next_inst == (uint32_t)program.length()) {
-			new_inst = getchar();
+			new_inst = fgetc(program_file);
 			program.push_back(new_inst);
 			curr_inst = new_inst;
 		} else
@@ -212,13 +223,14 @@ int main(int argc, char* argv[]) {
 				break;
 		}
 	}
+	fgetc(program_file);  // zhenlu: get rid of \n
 
 	std::ofstream out(memout_file, std::ios::binary);
 	if (!out) {
 		std::cerr << "Failed to open file\n";
 		return 1;
 	}
-	out.write(reinterpret_cast<char*>(mem), sizeof(mem));
+	out.write(reinterpret_cast<char*>(raw_mem), sizeof(raw_mem));
 	out.close();
 
 	return 0;

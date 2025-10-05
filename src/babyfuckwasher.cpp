@@ -17,7 +17,7 @@ int main() {
 	while (getline(file, line)) {
 		cout << line;
 	}
-	cout << endl;
+	cout << "\n";
 
 	while ((inst = getchar()) != EOF) {
 		switch (inst) {
@@ -34,10 +34,10 @@ int main() {
 				cout << "psz";
 				break;
 			case '.':
-				cout << "o";
+				cout << "vou";
 				break;
 			case ',':
-				cout << "i";
+				cout << "iu";
 				break;
 			case '[':
 				cout << "[";
@@ -52,6 +52,6 @@ int main() {
 
 	// cout.close();
 	// cout << endl;
-	cout << '$';
+	// cout << '$';
 	return 0;
 }

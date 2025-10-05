@@ -28,7 +28,7 @@ using std::popcount;
 using std::stack;
 using std::string;
 
-uint8_t mem[UINT16_MAX + 1] = {0};
+uint8_t raw_mem[UINT16_MAX + 1] = {0};
 uint32_t i = 0;
 
 string program;
@@ -66,7 +66,7 @@ uint8_t gray_to_bin(uint8_t n) {
 void mem_lookup() {
 	cout << "ptr: " << (int)gray_to_bin(i) << "\t";
 	for (int i = 0; i < 10; i++)
-		cout << i << ": " << (int)gray_to_bin(mem[gray_to_bin(i)]) << "\t";
+		cout << i << ": " << (int)gray_to_bin(raw_mem[gray_to_bin(i)]) << "\t";
 	cout << "bypass loop: " << bypass_loop << endl;
 }
 
@@ -94,12 +94,12 @@ uint32_t encode_mov(uint8_t rd, uint16_t imm16, uint8_t shift, bool keep) {
 
 void initialize_jit() {
 	cur_buffer.push_back(
-		encode_mov(2, (uint64_t)mem & 0xFFFF, 0, false));  // MOVZ X2, imm16
-	cur_buffer.push_back(encode_mov(2, ((uint64_t)mem >> 16) & 0xFFFF, 1,
+		encode_mov(2, (uint64_t)raw_mem & 0xFFFF, 0, false));  // MOVZ X2, imm16
+	cur_buffer.push_back(encode_mov(2, ((uint64_t)raw_mem >> 16) & 0xFFFF, 1,
 	                                true));  // MOVK X2, imm16, LSL16
-	cur_buffer.push_back(encode_mov(2, ((uint64_t)mem >> 32) & 0xFFFF, 2,
+	cur_buffer.push_back(encode_mov(2, ((uint64_t)raw_mem >> 32) & 0xFFFF, 2,
 	                                true));  // MOVK X2, imm16, LSL32
-	cur_buffer.push_back(encode_mov(2, ((uint64_t)mem >> 48) & 0xFFFF, 3,
+	cur_buffer.push_back(encode_mov(2, ((uint64_t)raw_mem >> 48) & 0xFFFF, 3,
 	                                true));     // MOVK X2, imm16, LSL48
 	cur_buffer.push_back(to_be32(0x030080D2));  // MOV X3, #0
 	push_code();
@@ -162,6 +162,8 @@ int basic_inst_jit() {
 		cur_buffer.push_back(to_be32(0xE20FC1A8));  //  LDP x2, x3, [SP], #16
 
 		cur_buffer.push_back(to_be32(0x40682338));  // STRB w0, [x2, x3]
+
+		// bin_to_gray 
 		// cur_buffer.push_back(to_be32(0x057C0153));  // LSR  w5, w0, #1
 		// cur_buffer.push_back(to_be32(0x0000054A));  // EOR  w0, w0, w5
 		// cur_buffer.push_back(to_be32(0x40682338));  // STRB w0, [x2, x3]
@@ -169,10 +171,12 @@ int basic_inst_jit() {
 		// putchar(gray_to_bin(mem[i]));
 		cur_buffer.push_back(to_be32(0x41686338));  // LDRB w1, [x2, x3]
 		cur_buffer.push_back(to_be32(0xE503012A));  // MOV  w5, w1
+
+		// gray_to_bin 
 		// cur_buffer.push_back(to_be32(0xA504454A));  // EOR  w5, w5, w5, LS #1
-		// cur_buffer.push_back(to_be32(0xA508454A));  // EOR  w5, w5, w5, LSR
-		// #2 cur_buffer.push_back(to_be32(0xA510454A));  // EOR  w5, w5, w5,
-		// LSR #4
+		// cur_buffer.push_back(to_be32(0xA508454A));  // EOR  w5, w5, w5, LSR #2
+		// cur_buffer.push_back(to_be32(0xA510454A));  // EOR  w5, w5, w5, LSR #4
+
 		cur_buffer.push_back(to_be32(0xE003052A));  // MOV  w0, w5
 		push_code();
 
@@ -323,7 +327,7 @@ void jit_run() {
 }
 
 int main(int argc, char* argv[]) {
-	if (argc < 3 || argc > 3) {
+	if (argc < 3 || argc > 4) {
 		printf("usage: COMPILER MEMOUT_FILE <OPTIONAL>PROGRAM_INPUT\n");
 		exit(1);
 	}
@@ -381,7 +385,7 @@ int main(int argc, char* argv[]) {
 		std::cerr << "Failed to open file\n";
 		return 1;
 	}
-	out.write(reinterpret_cast<char*>(mem), sizeof(mem));
+	out.write(reinterpret_cast<char*>(raw_mem), sizeof(raw_mem));
 	out.close();
 
 	return 0;
