@@ -1,0 +1,8 @@
+---
+triple:          'arm64-apple-darwin'
+binary-path:     'build/babywash_initializer'
+relocations:
+  - { offset: 0x614F, size: 0x8, addend: 0x0, symName: __ZStL8__ioinit, symObjAddr: 0x1E366, symBinAddr: 0x100008000, symSize: 0x0 }
+  - { offset: 0x62D2, size: 0x8, addend: 0x0, symName: _main, symObjAddr: 0x20, symBinAddr: 0x100003DCC, symSize: 0xB0 }
+  - { offset: 0x6337, size: 0x8, addend: 0x0, symName: __Z11bin_to_grayi, symObjAddr: 0x0, symBinAddr: 0x100003DAC, symSize: 0x20 }
+...

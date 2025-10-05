@@ -6,11 +6,18 @@ using namespace std;
 
 int main() {
 	char inst;
-	// ofstream cout("wash_program.txt");
-	// if (!cout) {
-	// 	cerr << "Failed to open wash_program.txt\n";
-	// 	return 1;
-	// }
+
+	ifstream file("test/bw/initialize.bw");
+	if (!file) {
+		cerr << "Failed to open file\n";
+		return 1;
+	}
+
+	string line;
+	while (getline(file, line)) {
+		cout << line;
+	}
+	cout << endl;
 
 	while ((inst = getchar()) != EOF) {
 		switch (inst) {
@@ -44,5 +51,7 @@ int main() {
 	}
 
 	// cout.close();
+	// cout << endl;
+	cout << '$';
 	return 0;
 }
